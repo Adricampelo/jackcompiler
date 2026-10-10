@@ -1,12 +1,16 @@
 
-public class Main {
-    public static void main(String[] args) {//TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-        // to see how IntelliJ IDEA suggests fixing it.
-        System.out.printf("Hello and welcome!");
+import java.nio.charset.StandardCharsets;
 
-        for (int i = 1; i <= 5; i++) {//TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-            // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-            System.out.println("i = " + i);
-        }
+public class Main {
+    public static void main(String[] args) {
+        String code = "class Main let contador function calcular return";
+
+        Scanner scanner = new Scanner(code.getBytes(StandardCharsets.UTF_8));
+
+        Token token;
+        do {
+            token = scanner.nextToken();
+            System.out.println(token);
+        } while (token.getType() != TokenType.EOF);
     }
 }
