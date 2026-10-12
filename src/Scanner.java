@@ -58,8 +58,8 @@ class Scanner {
 
     private char peekNext() {
         if (current + 1 >= input.length) {
-        return '\0';
-    }
+            return '\0';
+        }
 
         return (char) (input[current + 1] & 0xFF);
     }   
@@ -158,20 +158,40 @@ class Scanner {
     }
 }
 
-    private void skipNoise() {
-        while (!isAtEnd()) {
-            char ch = peek();
+    private void skipBlockComment() {
+        advance(); // consome '/'
+        advance(); // consome '*'
 
-            if (Character.isWhitespace(ch)) {
-                advance();
-            } else if (ch == '/' && peekNext() == '/') {
-                skipLineComment();
-            } else {
-                return;
-            }
+         while (!isAtEnd()) {
+            if (peek() == '*' && peekNext() == '/') {
+                advance(); // consome '*'
+                advance(); // consome '/'
+            return;
         }
+         advance();
+          }
+
+        throw new Error("Comentário de bloco sem fechamento");
+    }
+
+    private void skipNoise() {
+    while (!isAtEnd()) {
+        char ch = peek();
+
+        if (Character.isWhitespace(ch)) {
+            advance();
+        } else if (ch == '/' && peekNext() == '/') {
+            skipLineComment();
+        } else if (ch == '/' && peekNext() == '*') {   // <- novo
+            skipBlockComment();                         // <- novo
+        } else {
+            return;
+        }
+        }   
     }
     
+    
+
     public Token nextToken() {
         skipNoise();
 
