@@ -56,6 +56,14 @@ class Scanner {
         return (char) (input[current] & 0xFF);
     }
 
+    private char peekNext() {
+        if (current + 1 >= input.length) {
+        return '\0';
+    }
+
+        return (char) (input[current + 1] & 0xFF);
+    }   
+
 
     private boolean isAlpha(char ch) {
         return (ch >= 'a' && ch <= 'z')
@@ -143,10 +151,29 @@ class Scanner {
         return new Token(TokenType.STRING, text);
     }
 
-    public Token nextToken() {
-        while (!isAtEnd() && Character.isWhitespace(peek())) {
-            advance();
+    private void skipLineComment() {
+    // Consome até o fim da linha (o \n em si será tratado como espaço)
+    while (!isAtEnd() && peek() != '\n') {
+        advance();
+    }
+}
+
+    private void skipNoise() {
+        while (!isAtEnd()) {
+            char ch = peek();
+
+            if (Character.isWhitespace(ch)) {
+                advance();
+            } else if (ch == '/' && peekNext() == '/') {
+                skipLineComment();
+            } else {
+                return;
+            }
         }
+    }
+    
+    public Token nextToken() {
+        skipNoise();
 
         if (isAtEnd()) {
             return new Token(TokenType.EOF, "");
