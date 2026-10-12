@@ -3,7 +3,9 @@ import java.nio.charset.StandardCharsets;
 
 public class Main {
     public static void main(String[] args) {
-        String code = "class Main let contador function calcular return";
+        String code =
+                "class Main { let contador = 132 + 5; "
+                        + "let mensagem = \"Ola mundo\"; }";
 
         Scanner scanner = new Scanner(code.getBytes(StandardCharsets.UTF_8));
 

@@ -93,6 +93,55 @@ class Scanner {
         return new Token(type, text);
     }
 
+    private boolean isDigit(char ch) {
+        return ch >= '0' && ch <= '9';
+    }
+
+    private Token number() {
+        int start = current;
+
+        while (!isAtEnd() && isDigit(peek())) {
+            advance();
+        }
+
+        String text = new String(
+                input, start, current - start,
+                StandardCharsets.UTF_8
+        );
+
+        int value = Integer.parseInt(text);
+
+        if (value > 32767) {
+            throw new Error("Número fora do intervalo: " + text);
+        }
+
+        return new Token(TokenType.NUMBER, text);
+    }
+
+    private Token string() {
+        advance(); // Consome a aspa inicial
+        int start = current;
+
+        while (!isAtEnd() && peek() != '"') {
+            if (peek() == '\n' || peek() == '\r') {
+                throw new Error("Quebra de linha dentro da string");
+            }
+            advance();
+        }
+
+        if (isAtEnd()) {
+            throw new Error("String sem aspa de fechamento");
+        }
+
+        String text = new String(
+                input, start, current - start,
+                StandardCharsets.UTF_8
+        );
+
+        advance(); // Consome a aspa final
+
+        return new Token(TokenType.STRING, text);
+    }
 
     public Token nextToken() {
         while (!isAtEnd() && Character.isWhitespace(peek())) {
@@ -103,12 +152,45 @@ class Scanner {
             return new Token(TokenType.EOF, "");
         }
 
-        if (isAlpha(peek())) {
+        char ch = peek();
+
+        if (isAlpha(ch)) {
             return identifier();
         }
 
-        throw new Error(
-                "Caractere inesperado: " + peek()
-        );
+        if (isDigit(ch)) {
+            return number();
+        }
+
+        if (ch == '"') {
+            return string();
+        }
+
+        switch (ch) {
+            case '+': advance(); return new Token(TokenType.PLUS, "+");
+            case '-': advance(); return new Token(TokenType.MINUS, "-");
+            case '*': advance(); return new Token(TokenType.ASTERISK, "*");
+            case '.': advance(); return new Token(TokenType.DOT, ".");
+            case '&': advance(); return new Token(TokenType.AND, "&");
+            case '|': advance(); return new Token(TokenType.OR, "|");
+            case '~': advance(); return new Token(TokenType.NOT, "~");
+            case '>': advance(); return new Token(TokenType.GT, ">");
+            case '<': advance(); return new Token(TokenType.LT, "<");
+            case '=': advance(); return new Token(TokenType.EQ, "=");
+            case '(': advance(); return new Token(TokenType.LPAREN, "(");
+            case ')': advance(); return new Token(TokenType.RPAREN, ")");
+            case '{': advance(); return new Token(TokenType.LBRACE, "{");
+            case '}': advance(); return new Token(TokenType.RBRACE, "}");
+            case '[': advance(); return new Token(TokenType.LBRACKET, "[");
+            case ']': advance(); return new Token(TokenType.RBRACKET, "]");
+            case ';': advance(); return new Token(TokenType.SEMICOLON, ";");
+            case ',': advance(); return new Token(TokenType.COMMA, ",");
+            case '/':
+                advance();
+                return new Token(TokenType.SLASH, "/");
+
+            default:
+                throw new Error("Caractere inesperado: " + ch);
+        }
     }
 }
