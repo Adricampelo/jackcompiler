@@ -201,7 +201,7 @@ class Scanner {
 
         char ch = peek();
 
-        if (isAlpha(ch)) {
+        if (isAlpha(ch) || ch == '_') {
             return identifier();
         }
 
