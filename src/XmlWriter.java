@@ -35,4 +35,24 @@ public class XmlWriter {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
     }
+    
+      public static String write(Scanner scanner) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<tokens>\n");
+
+        Token token = scanner.nextToken();
+        while (token.getType() != TokenType.EOF) {
+          String tag = category(token.getType());
+
+          sb.append("<").append(tag).append("> ")
+            .append(escape(token.getLexeme()))
+            .append(" </").append(tag).append(">\n");
+
+          token = scanner.nextToken();
+      }
+
+      sb.append("</tokens>\n");
+      return sb.toString();
+  }
+
 }
