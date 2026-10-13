@@ -1,0 +1,10 @@
+// arquivo de teste
+class Main {
+    /* bloco */
+    function void main() {
+        var int _x;
+        let _x = 10 / 2;
+        do Output.printString("ola // mundo");
+        return;
+    }
+}

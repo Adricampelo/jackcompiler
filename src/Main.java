@@ -1,18 +1,28 @@
-
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class Main {
-    public static void main(String[] args) {
-        String code =
-                "// comentario de linha\n"
-              + "class Main { /* bloco */\n"
-              + "  /** doc\n"
-              + "   * multilinha */\n"
-              + "  let x = 10 / 2; // divisao\n"
-              + "  let s = \"http://x // nao e comentario\";\n"
-              + "}";
 
-        Scanner scanner = new Scanner(code.getBytes(StandardCharsets.UTF_8));
+    public static void main(String[] args) {
+        if (args.length != 1) {
+            System.err.println("Uso: java Main <arquivo.jack>");
+            System.exit(1);
+        }
+
+        Path file = Path.of(args[0]);
+
+        try {
+            tokenize(file);
+        } catch (IOException e) {
+            System.err.println("Erro ao ler " + file + ": " + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    private static void tokenize(Path file) throws IOException {
+        byte[] bytes = Files.readAllBytes(file);
+        Scanner scanner = new Scanner(bytes);
 
         Token token;
         do {
