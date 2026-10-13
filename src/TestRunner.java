@@ -1,5 +1,9 @@
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 
 public class TestRunner {
 
@@ -7,7 +11,10 @@ public class TestRunner {
     private static int failed = 0;
 
     public static void main(String[] args) throws IOException {
+        Path officialDir = Path.of(args.length > 0 ? args[0] : "tests/Square");
+
         runUnitTests();
+        runOfficialTests(officialDir);
         finish();
     }
 
@@ -80,6 +87,50 @@ public class TestRunner {
         expectError("comentário de bloco sem fechamento", "class /* abc");
         expectError("string sem aspa de fechamento", "\"abc");
         expectError("caractere inesperado", "@");
+    }
+
+    // ---------- comparação com os arquivos oficiais ----------
+
+    private static void runOfficialTests(Path dir) throws IOException {
+        System.out.println();
+        System.out.println("== Comparação com os XML oficiais (" + dir + ") ==");
+
+        if (!Files.isDirectory(dir)) {
+            fail("arquivos oficiais", "pasta não encontrada: " + dir);
+            return;
+        }
+
+        List<Path> jackFiles;
+        try (Stream<Path> files = Files.list(dir)) {
+            jackFiles = files
+                    .filter(p -> p.toString().endsWith(".jack"))
+                    .sorted()
+                    .toList();
+        }
+
+        if (jackFiles.isEmpty()) {
+            fail("arquivos oficiais", "nenhum .jack encontrado em " + dir);
+            return;
+        }
+
+        for (Path jack : jackFiles) {
+            String base = jack.getFileName().toString().replace(".jack", "");
+            Path expectedXml = dir.resolve(base + "T.xml");
+
+            if (!Files.exists(expectedXml)) {
+                fail(base + ".jack", "XML oficial não encontrado: " + expectedXml);
+                continue;
+            }
+
+            try {
+                Scanner scanner = new Scanner(Files.readAllBytes(jack));
+                String actual = XmlWriter.write(scanner);
+                String expected = Files.readString(expectedXml, StandardCharsets.UTF_8);
+                compare(base + ".jack  vs  " + base + "T.xml", actual, expected);
+            } catch (Throwable t) {
+                fail(base + ".jack", "erro ao processar: " + t);
+            }
+        }
     }
 
     // ---------- auxiliares ----------
