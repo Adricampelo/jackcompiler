@@ -33,7 +33,7 @@ public class Parser {
                 && currentToken.getType() == type;
     }
 
-    // Verifica e consome o token atual.
+    // Verifica, registra e consome o token atual.
     private Token consume(TokenType expected) {
         if (!match(expected)) {
             throw error(
@@ -43,12 +43,13 @@ public class Parser {
         }
 
         Token token = currentToken;
-
+        
         if (token.getType() != TokenType.EOF) {
             writeTerminal(token);
         }
 
         advance();
+
         return token;
     }
 
@@ -65,19 +66,30 @@ public class Parser {
                 .append(">\n");
     }
 
-    // Cria um erro sintático.
+    // Cria uma mensagem de erro sintático.
     private RuntimeException error(
             Token token,
             String message
     ) {
-        String encontrado = token == null
-                ? "nenhum token"
-                : token.getType() + " ('"
-                + token.getLexeme() + "')";
+        String encontrado;
+
+        if (token == null) {
+            encontrado = "nenhum token";
+        } else {
+            encontrado = token.getType()
+                    + " ('" + token.getLexeme() + "')";
+        }
 
         return new IllegalArgumentException(
-                "Erro sintático: " + message
-                        + ". Encontrado: " + encontrado
+                "Erro sintático: "
+                        + message
+                        + ". Encontrado: "
+                        + encontrado
         );
+    }
+
+    // Retorna o XML produzido até o momento.
+    public String getXmlOutput() {
+        return xmlOutput.toString();
     }
 }
