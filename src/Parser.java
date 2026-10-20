@@ -1,5 +1,3 @@
-import java.util.Arrays;
-
 public class Parser {
 
     private final Scanner scan;
@@ -7,6 +5,7 @@ public class Parser {
     private Token peekToken;
 
     private final StringBuilder xmlOutput = new StringBuilder();
+    private int indent = 0;
 
     public Parser(byte[] input) {
         this.scan = new Scanner(input);
@@ -43,7 +42,7 @@ public class Parser {
         }
 
         Token token = currentToken;
-        
+
         if (token.getType() != TokenType.EOF) {
             writeTerminal(token);
         }
@@ -53,10 +52,32 @@ public class Parser {
         return token;
     }
 
-    // Escreve um token terminal no XML.
+    // Abre uma tag e aumenta a indentação dos elementos internos.
+    private void openTag(String name) {
+        writeIndent();
+        xmlOutput.append("<").append(name).append(">\n");
+        indent++;
+    }
+
+    // Diminui a indentação e fecha a tag.
+    private void closeTag(String name) {
+        indent--;
+        writeIndent();
+        xmlOutput.append("</").append(name).append(">\n");
+    }
+
+    // Escreve dois espaços por nível de indentação.
+    private void writeIndent() {
+        for (int i = 0; i < indent; i++) {
+            xmlOutput.append("  ");
+        }
+    }
+
+    // Escreve um token terminal no XML, na indentação atual.
     private void writeTerminal(Token token) {
         String tag = XmlWriter.category(token.getType());
 
+        writeIndent();
         xmlOutput.append("<")
                 .append(tag)
                 .append("> ")
