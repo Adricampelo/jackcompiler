@@ -87,6 +87,26 @@ public class Parser {
                 .append(">\n");
     }
 
+    // Analisa a estrutura básica de uma classe Jack.
+    public void compileClass() {
+        openTag("class");
+
+        consume(TokenType.CLASS);
+        consume(TokenType.IDENT);
+        consume(TokenType.LBRACE);
+
+        consume(TokenType.RBRACE);
+
+        closeTag("class");
+
+        // Verifica se existe conteúdo após o fechamento da classe.
+        if (!match(TokenType.EOF)) {
+            throw error(
+                    currentToken,
+                    "Conteúdo inesperado após o fechamento da classe"
+            );
+        }
+    }
     // Cria uma mensagem de erro sintático.
     private RuntimeException error(
             Token token,
