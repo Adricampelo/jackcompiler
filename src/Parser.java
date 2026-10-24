@@ -95,6 +95,11 @@ public class Parser {
         consume(TokenType.IDENT);
         consume(TokenType.LBRACE);
 
+        while (match(TokenType.STATIC)
+                || match(TokenType.FIELD)) {
+            compileClassVarDec();
+        }
+
         consume(TokenType.RBRACE);
 
         closeTag("class");
@@ -107,6 +112,53 @@ public class Parser {
             );
         }
     }
+
+    // Analisa declarações de variáveis da classe.
+    private void compileClassVarDec() {
+        openTag("classVarDec");
+
+        // static ou field
+        if (match(TokenType.STATIC)) {
+            consume(TokenType.STATIC);
+        } else if (match(TokenType.FIELD)) {
+            consume(TokenType.FIELD);
+        } else {
+            throw error(
+                    currentToken,
+                    "Esperado static ou field"
+            );
+        }
+
+        if (match(TokenType.INT)) {
+            consume(TokenType.INT);
+        } else if (match(TokenType.CHAR)) {
+            consume(TokenType.CHAR);
+        } else if (match(TokenType.BOOLEAN)) {
+            consume(TokenType.BOOLEAN);
+        } else if (match(TokenType.IDENT)) {
+            consume(TokenType.IDENT);
+        } else {
+            throw error(
+                    currentToken,
+                    "Esperado um tipo: int, char, boolean ou nome de classe"
+            );
+        }
+
+
+        consume(TokenType.IDENT);
+
+
+        while (match(TokenType.COMMA)) {
+            consume(TokenType.COMMA);
+            consume(TokenType.IDENT);
+        }
+
+
+        consume(TokenType.SEMICOLON);
+
+        closeTag("classVarDec");
+    }
+
     // Cria uma mensagem de erro sintático.
     private RuntimeException error(
             Token token,
