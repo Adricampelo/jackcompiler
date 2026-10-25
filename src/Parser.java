@@ -99,6 +99,12 @@ public class Parser {
                 || match(TokenType.FIELD)) {
             compileClassVarDec();
         }
+        // Declarações de sub-rotinas.
+        while (match(TokenType.CONSTRUCTOR)
+                || match(TokenType.FUNCTION)
+                || match(TokenType.METHOD)) {
+            compileSubroutine();
+        }
 
         consume(TokenType.RBRACE);
 
@@ -157,6 +163,44 @@ public class Parser {
         consume(TokenType.SEMICOLON);
 
         closeTag("classVarDec");
+    }
+
+    // Analisa o cabeçalho de uma declaração de sub-rotina.
+    private void compileSubroutine() {
+        openTag("subroutineDec");
+
+        // Reconhece constructor, function ou method.
+        if (match(TokenType.CONSTRUCTOR)) {
+            consume(TokenType.CONSTRUCTOR);
+        } else if (match(TokenType.FUNCTION)) {
+            consume(TokenType.FUNCTION);
+        } else if (match(TokenType.METHOD)) {
+            consume(TokenType.METHOD);
+        } else {
+            throw error(currentToken,
+                    "Esperado constructor, function ou method");
+        }
+
+        // Reconhece o tipo de retorno.
+        if (match(TokenType.VOID)) {
+            consume(TokenType.VOID);
+        } else if (match(TokenType.INT)) {
+            consume(TokenType.INT);
+        } else if (match(TokenType.CHAR)) {
+            consume(TokenType.CHAR);
+        } else if (match(TokenType.BOOLEAN)) {
+            consume(TokenType.BOOLEAN);
+        } else if (match(TokenType.IDENT)) {
+            consume(TokenType.IDENT);
+        } else {
+            throw error(currentToken,
+                    "Esperado um tipo de retorno válido");
+        }
+
+        // Reconhece o nome da sub-rotina.
+        consume(TokenType.IDENT);
+
+        closeTag("subroutineDec");
     }
 
     // Cria uma mensagem de erro sintático.
