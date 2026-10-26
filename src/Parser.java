@@ -200,7 +200,46 @@ public class Parser {
         // Reconhece o nome da sub-rotina.
         consume(TokenType.IDENT);
 
+        consume(TokenType.LPAREN);
+        compileParameterList();
+        consume(TokenType.RPAREN);
+
         closeTag("subroutineDec");
+    }
+
+    // Analisa um tipo da linguagem Jack.
+    private void compileType() {
+        if (match(TokenType.INT)) {
+            consume(TokenType.INT);
+        } else if (match(TokenType.CHAR)) {
+            consume(TokenType.CHAR);
+        } else if (match(TokenType.BOOLEAN)) {
+            consume(TokenType.BOOLEAN);
+        } else if (match(TokenType.IDENT)) {
+            consume(TokenType.IDENT);
+        } else {
+            throw error(currentToken, "Esperado um tipo válido");
+        }
+    }
+
+    // Analisa a lista de parâmetros de uma sub-rotina.
+    private void compileParameterList() {
+        openTag("parameterList");
+
+
+        if (!match(TokenType.RPAREN)) {
+            compileType();
+            consume(TokenType.IDENT);
+
+            
+            while (match(TokenType.COMMA)) {
+                consume(TokenType.COMMA);
+                compileType();
+                consume(TokenType.IDENT);
+            }
+        }
+
+        closeTag("parameterList");
     }
 
     // Cria uma mensagem de erro sintático.
