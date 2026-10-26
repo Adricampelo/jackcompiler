@@ -244,7 +244,7 @@ public class Parser {
         consume(TokenType.VAR);
         compileType();
         consume(TokenType.IDENT);
-        
+
         while (match(TokenType.COMMA)) {
             consume(TokenType.COMMA);
             consume(TokenType.IDENT);
@@ -266,10 +266,34 @@ public class Parser {
             compileVarDec();
         }
 
-
+        compileStatements();
+        
         consume(TokenType.RBRACE);
 
         closeTag("subroutineBody");
+    }
+
+    // Analisa a sequência de instruções de uma sub-rotina.
+    private void compileStatements() {
+        openTag("statements");
+
+        while (true) {
+            if (match(TokenType.LET)) {
+                compileLet();
+            } else if (match(TokenType.IF)) {
+                compileIf();
+            } else if (match(TokenType.WHILE)) {
+                compileWhile();
+            } else if (match(TokenType.DO)) {
+                compileDo();
+            } else if (match(TokenType.RETURN)) {
+                compileReturn();
+            } else {
+                break;
+            }
+        }
+
+        closeTag("statements");
     }
 
     // Cria uma mensagem de erro sintático.
