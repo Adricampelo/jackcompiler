@@ -184,25 +184,20 @@ public class Parser {
         // Reconhece o tipo de retorno.
         if (match(TokenType.VOID)) {
             consume(TokenType.VOID);
-        } else if (match(TokenType.INT)) {
-            consume(TokenType.INT);
-        } else if (match(TokenType.CHAR)) {
-            consume(TokenType.CHAR);
-        } else if (match(TokenType.BOOLEAN)) {
-            consume(TokenType.BOOLEAN);
-        } else if (match(TokenType.IDENT)) {
-            consume(TokenType.IDENT);
         } else {
-            throw error(currentToken,
-                    "Esperado um tipo de retorno válido");
+            compileType();
         }
 
         // Reconhece o nome da sub-rotina.
         consume(TokenType.IDENT);
 
+        // Analisa a lista de parâmetros.
         consume(TokenType.LPAREN);
         compileParameterList();
         consume(TokenType.RPAREN);
+
+        // Analisa o corpo da sub-rotina.
+        compileSubroutineBody();
 
         closeTag("subroutineDec");
     }
@@ -231,7 +226,7 @@ public class Parser {
             compileType();
             consume(TokenType.IDENT);
 
-            
+
             while (match(TokenType.COMMA)) {
                 consume(TokenType.COMMA);
                 compileType();
@@ -240,6 +235,41 @@ public class Parser {
         }
 
         closeTag("parameterList");
+    }
+
+    // Analisa declarações de variáveis locais.
+    private void compileVarDec() {
+        openTag("varDec");
+
+        consume(TokenType.VAR);
+        compileType();
+        consume(TokenType.IDENT);
+        
+        while (match(TokenType.COMMA)) {
+            consume(TokenType.COMMA);
+            consume(TokenType.IDENT);
+        }
+
+        consume(TokenType.SEMICOLON);
+
+        closeTag("varDec");
+    }
+
+
+    private void compileSubroutineBody() {
+        openTag("subroutineBody");
+
+        consume(TokenType.LBRACE);
+
+
+        while (match(TokenType.VAR)) {
+            compileVarDec();
+        }
+
+
+        consume(TokenType.RBRACE);
+
+        closeTag("subroutineBody");
     }
 
     // Cria uma mensagem de erro sintático.
