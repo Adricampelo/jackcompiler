@@ -1,17 +1,24 @@
 class Teste {
+
     function void main() {
-        var int x;
+        var int x, y;
+        var Array numeros;
 
-        let x = 0;
+        let x = 10 + 5;
+        let y = (x * 2) - 3;
+        let x = -y;
+        let numeros[0] = x;
 
-        while (x < 10) {
-            if (x < 5) {
-                let x = x + 1;
-            } else {
-                let x = x + 2;
-            }
+        if (x > 10) {
+            do Output.printInt(x);
+        } else {
+            do Output.printInt(y);
         }
 
-        do Output.printInt(x);
+        do Output.printString("Teste");
+        do Math.multiply(2, 3);
+        do Screen.clearScreen();
+
+        return;
     }
 }
