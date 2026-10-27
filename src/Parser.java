@@ -466,7 +466,20 @@ public class Parser {
         closeTag("doStatement");
     }
 
-    private void compileReturn() { }
+    private void compileReturn() {
+        openTag("returnStatement");
+
+        consume(TokenType.RETURN);
+
+        
+        if (!match(TokenType.SEMICOLON)) {
+            compileExpression();
+        }
+
+        consume(TokenType.SEMICOLON);
+
+        closeTag("returnStatement");
+    }
 
 
     private RuntimeException error(
