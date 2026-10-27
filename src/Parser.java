@@ -9,30 +9,28 @@ public class Parser {
 
     public Parser(byte[] input) {
         this.scan = new Scanner(input);
-
-        // Carrega o primeiro e o segundo tokens.
         advance();
         advance();
     }
 
-    // Avança os tokens.
+  
     private void advance() {
         currentToken = peekToken;
         peekToken = scan.nextToken();
     }
 
-    // Consulta o próximo token sem consumi-lo.
+
     private Token peek() {
         return peekToken;
     }
 
-    // Verifica o tipo do token atual.
+
     private boolean match(TokenType type) {
         return currentToken != null
                 && currentToken.getType() == type;
     }
 
-    // Verifica, registra e consome o token atual.
+
     private Token consume(TokenType expected) {
         if (!match(expected)) {
             throw error(
@@ -52,28 +50,28 @@ public class Parser {
         return token;
     }
 
-    // Abre uma tag e aumenta a indentação dos elementos internos.
+
     private void openTag(String name) {
         writeIndent();
         xmlOutput.append("<").append(name).append(">\n");
         indent++;
     }
 
-    // Diminui a indentação e fecha a tag.
+
     private void closeTag(String name) {
         indent--;
         writeIndent();
         xmlOutput.append("</").append(name).append(">\n");
     }
 
-    // Escreve dois espaços por nível de indentação.
+
     private void writeIndent() {
         for (int i = 0; i < indent; i++) {
             xmlOutput.append("  ");
         }
     }
 
-    // Escreve um token terminal no XML, na indentação atual.
+
     private void writeTerminal(Token token) {
         String tag = XmlWriter.category(token.getType());
 
@@ -87,7 +85,7 @@ public class Parser {
                 .append(">\n");
     }
 
-    // Analisa a estrutura básica de uma classe Jack.
+
     public void compileClass() {
         openTag("class");
 
@@ -99,7 +97,7 @@ public class Parser {
                 || match(TokenType.FIELD)) {
             compileClassVarDec();
         }
-        // Declarações de sub-rotinas.
+
         while (match(TokenType.CONSTRUCTOR)
                 || match(TokenType.FUNCTION)
                 || match(TokenType.METHOD)) {
@@ -110,7 +108,6 @@ public class Parser {
 
         closeTag("class");
 
-        // Verifica se existe conteúdo após o fechamento da classe.
         if (!match(TokenType.EOF)) {
             throw error(
                     currentToken,
@@ -119,11 +116,10 @@ public class Parser {
         }
     }
 
-    // Analisa declarações de variáveis da classe.
+
     private void compileClassVarDec() {
         openTag("classVarDec");
 
-        // static ou field
         if (match(TokenType.STATIC)) {
             consume(TokenType.STATIC);
         } else if (match(TokenType.FIELD)) {
@@ -165,11 +161,11 @@ public class Parser {
         closeTag("classVarDec");
     }
 
-    // Analisa o cabeçalho de uma declaração de sub-rotina.
+
     private void compileSubroutine() {
         openTag("subroutineDec");
 
-        // Reconhece constructor, function ou method.
+
         if (match(TokenType.CONSTRUCTOR)) {
             consume(TokenType.CONSTRUCTOR);
         } else if (match(TokenType.FUNCTION)) {
@@ -181,28 +177,24 @@ public class Parser {
                     "Esperado constructor, function ou method");
         }
 
-        // Reconhece o tipo de retorno.
+
         if (match(TokenType.VOID)) {
             consume(TokenType.VOID);
         } else {
             compileType();
         }
 
-        // Reconhece o nome da sub-rotina.
         consume(TokenType.IDENT);
 
-        // Analisa a lista de parâmetros.
         consume(TokenType.LPAREN);
         compileParameterList();
         consume(TokenType.RPAREN);
-
-        // Analisa o corpo da sub-rotina.
         compileSubroutineBody();
 
         closeTag("subroutineDec");
     }
 
-    // Analisa um tipo da linguagem Jack.
+
     private void compileType() {
         if (match(TokenType.INT)) {
             consume(TokenType.INT);
@@ -217,7 +209,6 @@ public class Parser {
         }
     }
 
-    // Analisa a lista de parâmetros de uma sub-rotina.
     private void compileParameterList() {
         openTag("parameterList");
 
@@ -237,7 +228,6 @@ public class Parser {
         closeTag("parameterList");
     }
 
-    // Analisa declarações de variáveis locais.
     private void compileVarDec() {
         openTag("varDec");
 
@@ -267,13 +257,12 @@ public class Parser {
         }
 
         compileStatements();
-        
+
         consume(TokenType.RBRACE);
 
         closeTag("subroutineBody");
     }
 
-    // Analisa a sequência de instruções de uma sub-rotina.
     private void compileStatements() {
         openTag("statements");
 
@@ -296,7 +285,126 @@ public class Parser {
         closeTag("statements");
     }
 
-    // Cria uma mensagem de erro sintático.
+
+    private void compileExpression() {
+        openTag("expression");
+
+        compileTerm();
+
+        while (isOperator()) {
+            consume(currentToken.getType());
+            compileTerm();
+        }
+
+        closeTag("expression");
+    }
+
+    private boolean isOperator() {
+        return match(TokenType.PLUS)
+                || match(TokenType.MINUS)
+                || match(TokenType.ASTERISK)
+                || match(TokenType.SLASH)
+                || match(TokenType.AND)
+                || match(TokenType.OR)
+                || match(TokenType.LT)
+                || match(TokenType.GT)
+                || match(TokenType.EQ);
+    }
+
+    private boolean isKeywordConstant() {
+        return match(TokenType.TRUE)
+                || match(TokenType.FALSE)
+                || match(TokenType.NULL)
+                || match(TokenType.THIS);
+    }
+
+    private void compileTerm() {
+        openTag("term");
+
+        if (match(TokenType.NUMBER)) {
+            consume(TokenType.NUMBER);
+
+        } else if (match(TokenType.STRING)) {
+            consume(TokenType.STRING);
+
+        } else if (isKeywordConstant()) {
+            consume(currentToken.getType());
+
+        } else if (match(TokenType.LPAREN)) {
+            consume(TokenType.LPAREN);
+            compileExpression();
+            consume(TokenType.RPAREN);
+
+        } else if (match(TokenType.MINUS) || match(TokenType.NOT)) {
+            consume(currentToken.getType());
+            compileTerm();
+
+        } else if (match(TokenType.IDENT)) {
+            TokenType next = peek().getType();
+
+            if (next == TokenType.LBRACKET) {
+                consume(TokenType.IDENT);
+                consume(TokenType.LBRACKET);
+                compileExpression();
+                consume(TokenType.RBRACKET);
+            } else if (next == TokenType.LPAREN || next == TokenType.DOT) {
+                compileSubroutineCall();
+            } else {
+                consume(TokenType.IDENT);
+            }
+
+        } else {
+            throw error(
+                    currentToken,
+                    "Esperado um termo: número, string, identificador, "
+                            + "constante, \"(\", \"-\" ou \"~\""
+            );
+        }
+
+        closeTag("term");
+    }
+
+
+    private void compileSubroutineCall() {
+        consume(TokenType.IDENT);
+        if (match(TokenType.DOT)) {
+            consume(TokenType.DOT);
+            consume(TokenType.IDENT);
+        }
+
+        consume(TokenType.LPAREN);
+        compileExpressionList();
+        consume(TokenType.RPAREN);
+    }
+
+
+    private void compileExpressionList() {
+        openTag("expressionList");
+
+        if (!match(TokenType.RPAREN)) {
+            compileExpression();
+
+            while (match(TokenType.COMMA)) {
+                consume(TokenType.COMMA);
+                compileExpression();
+            }
+        }
+
+        closeTag("expressionList");
+    }
+
+
+    private void compileLet() { }
+
+    private void compileIf() { }
+
+    private void compileWhile() { }
+
+    private void compileDo() { }
+
+    private void compileReturn() { }
+
+
     private RuntimeException error(
             Token token,
             String message
@@ -318,7 +426,7 @@ public class Parser {
         );
     }
 
-    // Retorna o XML produzido até o momento.
+    
     public String getXmlOutput() {
         return xmlOutput.toString();
     }
