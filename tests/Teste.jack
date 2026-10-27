@@ -1,0 +1,9 @@
+class Teste {
+    function void main() {
+        var int x;
+        let x = 10;
+        let x = x + 5;
+        do Output.printInt(x);
+        return;
+    }
+}

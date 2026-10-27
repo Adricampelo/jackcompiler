@@ -394,13 +394,36 @@ public class Parser {
     }
 
 
-    private void compileLet() { }
+    private void compileLet() {
+        openTag("letStatement");
+
+        consume(TokenType.LET);
+        consume(TokenType.IDENT);
+
+        if (match(TokenType.LBRACKET)) {
+            consume(TokenType.LBRACKET);
+            compileExpression();
+            consume(TokenType.RBRACKET);
+        }
+
+        consume(TokenType.EQ);
+        compileExpression();
+        consume(TokenType.SEMICOLON);
+
+        closeTag("letStatement");
+    }
 
     private void compileIf() { }
 
     private void compileWhile() { }
 
-    private void compileDo() { }
+    private void compileDo() {
+        openTag("doStatement");
+        consume(TokenType.DO);
+        compileSubroutineCall();
+        consume(TokenType.SEMICOLON);
+        closeTag("doStatement");
+    }
 
     private void compileReturn() { }
 
