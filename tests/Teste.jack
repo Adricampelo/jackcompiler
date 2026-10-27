@@ -1,9 +1,17 @@
 class Teste {
     function void main() {
         var int x;
-        let x = 10;
-        let x = x + 5;
+
+        let x = 0;
+
+        while (x < 10) {
+            if (x < 5) {
+                let x = x + 1;
+            } else {
+                let x = x + 2;
+            }
+        }
+
         do Output.printInt(x);
-        return;
     }
 }

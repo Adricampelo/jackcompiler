@@ -413,9 +413,50 @@ public class Parser {
         closeTag("letStatement");
     }
 
-    private void compileIf() { }
+    private void compileIf() {
+        openTag("ifStatement");
 
-    private void compileWhile() { }
+        consume(TokenType.IF);
+        consume(TokenType.LPAREN);
+
+        compileExpression();
+
+        consume(TokenType.RPAREN);
+        consume(TokenType.LBRACE);
+
+        compileStatements();
+
+        consume(TokenType.RBRACE);
+
+        if (match(TokenType.ELSE)) {
+            consume(TokenType.ELSE);
+            consume(TokenType.LBRACE);
+
+            compileStatements();
+
+            consume(TokenType.RBRACE);
+        }
+
+        closeTag("ifStatement");
+    }
+
+    private void compileWhile() {
+        openTag("whileStatement");
+
+        consume(TokenType.WHILE);
+        consume(TokenType.LPAREN);
+
+        compileExpression();
+
+        consume(TokenType.RPAREN);
+        consume(TokenType.LBRACE);
+
+        compileStatements();
+
+        consume(TokenType.RBRACE);
+
+        closeTag("whileStatement");
+    }
 
     private void compileDo() {
         openTag("doStatement");
