@@ -1,3 +1,4 @@
+
 public class Parser {
 
     private final Scanner scan;
@@ -13,30 +14,23 @@ public class Parser {
         advance();
     }
 
-  
     private void advance() {
         currentToken = peekToken;
         peekToken = scan.nextToken();
     }
 
-
     private Token peek() {
         return peekToken;
     }
-
 
     private boolean match(TokenType type) {
         return currentToken != null
                 && currentToken.getType() == type;
     }
 
-
     private Token consume(TokenType expected) {
         if (!match(expected)) {
-            throw error(
-                    currentToken,
-                    "Esperado " + expected.name()
-            );
+            throw error(currentToken, "Esperado: " + expected.name());
         }
 
         Token token = currentToken;
@@ -46,10 +40,8 @@ public class Parser {
         }
 
         advance();
-
         return token;
     }
-
 
     private void openTag(String name) {
         writeIndent();
@@ -57,20 +49,17 @@ public class Parser {
         indent++;
     }
 
-
     private void closeTag(String name) {
         indent--;
         writeIndent();
         xmlOutput.append("</").append(name).append(">\n");
     }
 
-
     private void writeIndent() {
         for (int i = 0; i < indent; i++) {
             xmlOutput.append("  ");
         }
     }
-
 
     private void writeTerminal(Token token) {
         String tag = XmlWriter.category(token.getType());
@@ -84,7 +73,6 @@ public class Parser {
                 .append(tag)
                 .append(">\n");
     }
-
 
     public void compileClass() {
         openTag("class");
@@ -105,17 +93,15 @@ public class Parser {
         }
 
         consume(TokenType.RBRACE);
-
         closeTag("class");
 
         if (!match(TokenType.EOF)) {
             throw error(
                     currentToken,
-                    "Conteúdo inesperado após o fechamento da classe"
+                    "Esperado: fim do arquivo (EOF)"
             );
         }
     }
-
 
     private void compileClassVarDec() {
         openTag("classVarDec");
@@ -127,44 +113,24 @@ public class Parser {
         } else {
             throw error(
                     currentToken,
-                    "Esperado static ou field"
+                    "Esperado: static ou field"
             );
         }
 
-        if (match(TokenType.INT)) {
-            consume(TokenType.INT);
-        } else if (match(TokenType.CHAR)) {
-            consume(TokenType.CHAR);
-        } else if (match(TokenType.BOOLEAN)) {
-            consume(TokenType.BOOLEAN);
-        } else if (match(TokenType.IDENT)) {
-            consume(TokenType.IDENT);
-        } else {
-            throw error(
-                    currentToken,
-                    "Esperado um tipo: int, char, boolean ou nome de classe"
-            );
-        }
-
-
+        compileType();
         consume(TokenType.IDENT);
-
 
         while (match(TokenType.COMMA)) {
             consume(TokenType.COMMA);
             consume(TokenType.IDENT);
         }
 
-
         consume(TokenType.SEMICOLON);
-
         closeTag("classVarDec");
     }
 
-
     private void compileSubroutine() {
         openTag("subroutineDec");
-
 
         if (match(TokenType.CONSTRUCTOR)) {
             consume(TokenType.CONSTRUCTOR);
@@ -173,10 +139,11 @@ public class Parser {
         } else if (match(TokenType.METHOD)) {
             consume(TokenType.METHOD);
         } else {
-            throw error(currentToken,
-                    "Esperado constructor, function ou method");
+            throw error(
+                    currentToken,
+                    "Esperado: constructor, function ou method"
+            );
         }
-
 
         if (match(TokenType.VOID)) {
             consume(TokenType.VOID);
@@ -185,7 +152,6 @@ public class Parser {
         }
 
         consume(TokenType.IDENT);
-
         consume(TokenType.LPAREN);
         compileParameterList();
         consume(TokenType.RPAREN);
@@ -193,7 +159,6 @@ public class Parser {
 
         closeTag("subroutineDec");
     }
-
 
     private void compileType() {
         if (match(TokenType.INT)) {
@@ -205,18 +170,19 @@ public class Parser {
         } else if (match(TokenType.IDENT)) {
             consume(TokenType.IDENT);
         } else {
-            throw error(currentToken, "Esperado um tipo válido");
+            throw error(
+                    currentToken,
+                    "Esperado: um tipo válido"
+            );
         }
     }
 
     private void compileParameterList() {
         openTag("parameterList");
 
-
         if (!match(TokenType.RPAREN)) {
             compileType();
             consume(TokenType.IDENT);
-
 
             while (match(TokenType.COMMA)) {
                 consume(TokenType.COMMA);
@@ -241,23 +207,19 @@ public class Parser {
         }
 
         consume(TokenType.SEMICOLON);
-
         closeTag("varDec");
     }
-
 
     private void compileSubroutineBody() {
         openTag("subroutineBody");
 
         consume(TokenType.LBRACE);
 
-
         while (match(TokenType.VAR)) {
             compileVarDec();
         }
 
         compileStatements();
-
         consume(TokenType.RBRACE);
 
         closeTag("subroutineBody");
@@ -284,7 +246,6 @@ public class Parser {
 
         closeTag("statements");
     }
-
 
     private void compileExpression() {
         openTag("expression");
@@ -335,7 +296,8 @@ public class Parser {
             compileExpression();
             consume(TokenType.RPAREN);
 
-        } else if (match(TokenType.MINUS) || match(TokenType.NOT)) {
+        } else if (match(TokenType.MINUS)
+                || match(TokenType.NOT)) {
             consume(currentToken.getType());
             compileTerm();
 
@@ -347,8 +309,11 @@ public class Parser {
                 consume(TokenType.LBRACKET);
                 compileExpression();
                 consume(TokenType.RBRACKET);
-            } else if (next == TokenType.LPAREN || next == TokenType.DOT) {
+
+            } else if (next == TokenType.LPAREN
+                    || next == TokenType.DOT) {
                 compileSubroutineCall();
+
             } else {
                 consume(TokenType.IDENT);
             }
@@ -356,17 +321,16 @@ public class Parser {
         } else {
             throw error(
                     currentToken,
-                    "Esperado um termo: número, string, identificador, "
-                            + "constante, \"(\", \"-\" ou \"~\""
+                    "Esperado: um termo válido"
             );
         }
 
         closeTag("term");
     }
 
-
     private void compileSubroutineCall() {
         consume(TokenType.IDENT);
+
         if (match(TokenType.DOT)) {
             consume(TokenType.DOT);
             consume(TokenType.IDENT);
@@ -376,7 +340,6 @@ public class Parser {
         compileExpressionList();
         consume(TokenType.RPAREN);
     }
-
 
     private void compileExpressionList() {
         openTag("expressionList");
@@ -392,7 +355,6 @@ public class Parser {
 
         closeTag("expressionList");
     }
-
 
     private void compileLet() {
         openTag("letStatement");
@@ -418,22 +380,16 @@ public class Parser {
 
         consume(TokenType.IF);
         consume(TokenType.LPAREN);
-
         compileExpression();
-
         consume(TokenType.RPAREN);
         consume(TokenType.LBRACE);
-
         compileStatements();
-
         consume(TokenType.RBRACE);
 
         if (match(TokenType.ELSE)) {
             consume(TokenType.ELSE);
             consume(TokenType.LBRACE);
-
             compileStatements();
-
             consume(TokenType.RBRACE);
         }
 
@@ -445,14 +401,10 @@ public class Parser {
 
         consume(TokenType.WHILE);
         consume(TokenType.LPAREN);
-
         compileExpression();
-
         consume(TokenType.RPAREN);
         consume(TokenType.LBRACE);
-
         compileStatements();
-
         consume(TokenType.RBRACE);
 
         closeTag("whileStatement");
@@ -460,9 +412,11 @@ public class Parser {
 
     private void compileDo() {
         openTag("doStatement");
+
         consume(TokenType.DO);
         compileSubroutineCall();
         consume(TokenType.SEMICOLON);
+
         closeTag("doStatement");
     }
 
@@ -471,39 +425,39 @@ public class Parser {
 
         consume(TokenType.RETURN);
 
-        
         if (!match(TokenType.SEMICOLON)) {
             compileExpression();
         }
 
         consume(TokenType.SEMICOLON);
-
         closeTag("returnStatement");
     }
 
+    private RuntimeException error(Token token, String message) {
+        if (token == null) {
+            return new IllegalArgumentException(
+                    "Erro sintático: " + message
+                    + "\nEncontrado: nenhum token"
+            );
+        }
 
-    private RuntimeException error(
-            Token token,
-            String message
-    ) {
         String encontrado;
 
-        if (token == null) {
-            encontrado = "nenhum token";
+        if (token.getType() == TokenType.EOF) {
+            encontrado = "fim do arquivo (EOF)";
         } else {
             encontrado = token.getType()
                     + " ('" + token.getLexeme() + "')";
         }
 
         return new IllegalArgumentException(
-                "Erro sintático: "
-                        + message
-                        + ". Encontrado: "
-                        + encontrado
+                "Erro sintático na linha " + token.getLine()
+                + ", coluna " + token.getColumn()
+                + "\n" + message
+                + "\nEncontrado: " + encontrado
         );
     }
 
-    
     public String getXmlOutput() {
         return xmlOutput.toString();
     }
