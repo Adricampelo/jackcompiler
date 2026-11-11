@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 
+
 public class CompilationEngine implements AutoCloseable {
 
     private final Scanner scan;
@@ -38,6 +39,7 @@ public class CompilationEngine implements AutoCloseable {
 
     // Leitura de tokens
 
+
     private void advance() {
         currentToken = peekToken;
         peekToken = scan.nextToken();
@@ -64,12 +66,11 @@ public class CompilationEngine implements AutoCloseable {
 
     // Apoio à geração de código
 
-    /** Gera um rótulo único dentro da classe */
-    private String newLabel(String prefix) {
-        return prefix + (labelCounter++);
+    private int nextLabelId() {
+        return labelCounter++;
     }
 
-    /** Converte a categoria da tabela de símbolos no segmento VM. */
+
     private String segmentOf(Kind kind) {
         switch (kind) {
             case STATIC:   return "static";
@@ -83,7 +84,7 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-    /** Empilha o valor da variável 'name' (local, argumento, campo ou static). */
+
     private void pushVariable(Token name) throws IOException {
         Kind kind = symbolTable.kindOf(name.getLexeme());
 
@@ -96,6 +97,7 @@ public class CompilationEngine implements AutoCloseable {
                 segmentOf(kind), symbolTable.indexOf(name.getLexeme())
         );
     }
+
 
     private void popVariable(Token name) throws IOException {
         Kind kind = symbolTable.kindOf(name.getLexeme());
@@ -110,7 +112,7 @@ public class CompilationEngine implements AutoCloseable {
         );
     }
 
-    /** Define a variável na tabela de símbolos, apontando a posição em caso de erro. */
+ 
     private void define(Token name, String type, Kind kind) {
         try {
             symbolTable.define(name.getLexeme(), type, kind);
@@ -118,7 +120,10 @@ public class CompilationEngine implements AutoCloseable {
             throw error(name, e.getMessage());
         }
     }
+
+
     // Estrutura da classe
+    
 
     public void compileClass() throws IOException {
         consume(TokenType.CLASS);
@@ -142,10 +147,9 @@ public class CompilationEngine implements AutoCloseable {
                     "Esperado: fim do arquivo (EOF)");
         }
     }
-    
-    // Declarações (passo 7)
 
-    /** type: 'int' | 'char' | 'boolean' | className. Devolve o tipo como texto. */
+    // Declarações 
+
     private String compileType() {
         if (match(TokenType.INT)
                 || match(TokenType.CHAR)
@@ -159,7 +163,7 @@ public class CompilationEngine implements AutoCloseable {
         throw error(currentToken, "Esperado: um tipo válido");
     }
 
-    /** classVarDec: ('static' | 'field') type varName (',' varName)* ';' */
+
     private void compileClassVarDec() {
         Kind kind;
 
@@ -184,6 +188,7 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.SEMICOLON);
     }
 
+
     private void compileSubroutine() throws IOException {
         if (match(TokenType.CONSTRUCTOR)
                 || match(TokenType.FUNCTION)
@@ -206,6 +211,7 @@ public class CompilationEngine implements AutoCloseable {
 
         symbolTable.startSubroutine();
 
+        // Em um método, o argumento 0 é o próprio objeto (this)
         if (subroutineKind == TokenType.METHOD) {
             symbolTable.define("this", className, Kind.ARGUMENT);
         }
@@ -216,6 +222,7 @@ public class CompilationEngine implements AutoCloseable {
 
         compileSubroutineBody();
     }
+
 
     private void compileParameterList() {
         if (match(TokenType.RPAREN)) {
@@ -231,6 +238,7 @@ public class CompilationEngine implements AutoCloseable {
             define(consume(TokenType.IDENT), type, Kind.ARGUMENT);
         }
     }
+
 
     private void compileVarDec() {
         consume(TokenType.VAR);
@@ -264,7 +272,7 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.RBRACE);
     }
 
-
+ 
     private void compileStatements() throws IOException {
         while (true) {
             if (match(TokenType.LET)) {
@@ -272,9 +280,9 @@ public class CompilationEngine implements AutoCloseable {
             } else if (match(TokenType.DO)) {
                 compileDo();
             } else if (match(TokenType.IF)) {
-                throw notYet("comando if", "10");
+                compileIf();
             } else if (match(TokenType.WHILE)) {
-                throw notYet("comando while", "10");
+                compileWhile();
             } else if (match(TokenType.RETURN)) {
                 throw notYet("comando return", "11");
             } else {
@@ -283,8 +291,9 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-    // Comandos let e do 
 
+    // Comandos let e do (passo 9)
+   
     private void compileLet() throws IOException {
         consume(TokenType.LET);
         Token name = consume(TokenType.IDENT);
@@ -300,16 +309,17 @@ public class CompilationEngine implements AutoCloseable {
         popVariable(name);
     }
 
-    /** doStatement: 'do' subroutineCall ';' */
+    
     private void compileDo() throws IOException {
         consume(TokenType.DO);
         compileSubroutineCall();
         consume(TokenType.SEMICOLON);
 
+        
         vmWriter.writePop("temp", 0);
     }
 
-    
+
     private void compileSubroutineCall() throws IOException {
         Token first = consume(TokenType.IDENT);
         String target;
@@ -345,7 +355,7 @@ public class CompilationEngine implements AutoCloseable {
         vmWriter.writeCall(target, nArgs);
     }
 
-
+  
     private int compileExpressionList() throws IOException {
         if (match(TokenType.RPAREN)) {
             return 0;
@@ -363,6 +373,64 @@ public class CompilationEngine implements AutoCloseable {
         return count;
     }
 
+    // Comandos if e while
+  
+    private void compileIf() throws IOException {
+        int id = nextLabelId();
+        String ifTrue = "IF_TRUE" + id;
+        String ifFalse = "IF_FALSE" + id;
+        String ifEnd = "IF_END" + id;
+
+        consume(TokenType.IF);
+        consume(TokenType.LPAREN);
+        compileExpression();
+        consume(TokenType.RPAREN);
+
+        vmWriter.writeIf(ifTrue);
+        vmWriter.writeGoto(ifFalse);
+        vmWriter.writeLabel(ifTrue);
+
+        consume(TokenType.LBRACE);
+        compileStatements();
+        consume(TokenType.RBRACE);
+
+        if (match(TokenType.ELSE)) {
+            vmWriter.writeGoto(ifEnd);
+            vmWriter.writeLabel(ifFalse);
+
+            consume(TokenType.ELSE);
+            consume(TokenType.LBRACE);
+            compileStatements();
+            consume(TokenType.RBRACE);
+
+            vmWriter.writeLabel(ifEnd);
+        } else {
+            vmWriter.writeLabel(ifFalse);
+        }
+    }
+
+    private void compileWhile() throws IOException {
+        int id = nextLabelId();
+        String whileExp = "WHILE_EXP" + id;
+        String whileEnd = "WHILE_END" + id;
+
+        consume(TokenType.WHILE);
+        vmWriter.writeLabel(whileExp);
+
+        consume(TokenType.LPAREN);
+        compileExpression();
+        consume(TokenType.RPAREN);
+
+        vmWriter.writeArithmetic("not");
+        vmWriter.writeIf(whileEnd);
+
+        consume(TokenType.LBRACE);
+        compileStatements();
+        consume(TokenType.RBRACE);
+
+        vmWriter.writeGoto(whileExp);
+        vmWriter.writeLabel(whileEnd);
+    }
 
     // Expressões 
 
@@ -373,7 +441,6 @@ public class CompilationEngine implements AutoCloseable {
                 || match(TokenType.LT) || match(TokenType.GT)
                 || match(TokenType.EQ);
     }
-
 
     private void compileExpression() throws IOException {
         compileTerm();
@@ -401,7 +468,6 @@ public class CompilationEngine implements AutoCloseable {
                 throw error(op, "Operador inválido");
         }
     }
-
 
     private void compileTerm() throws IOException {
         if (match(TokenType.NUMBER)) {
