@@ -14,6 +14,11 @@ public class CompilationEngine implements AutoCloseable {
     private String className;
     private int labelCounter = 0;
 
+    // Sub-rotina em compilação 
+    private TokenType subroutineKind;      // CONSTRUCTOR, FUNCTION ou METHOD
+    private String subroutineName;
+    private String subroutineReturnType;
+
     public CompilationEngine(byte[] input, Path outputFile)
             throws IOException {
         this(input, new VMWriter(outputFile));
@@ -31,9 +36,7 @@ public class CompilationEngine implements AutoCloseable {
         advance();
     }
 
-
     // Leitura de tokens
-  
 
     private void advance() {
         currentToken = peekToken;
@@ -59,15 +62,12 @@ public class CompilationEngine implements AutoCloseable {
         return token;
     }
 
-
-    // Apoio à geração de código
-
-  
+    /** Gera um rótulo único dentro da classe */
     private String newLabel(String prefix) {
         return prefix + (labelCounter++);
     }
 
-
+    /** Converte a categoria da tabela de símbolos no segmento VM. */
     private String segmentOf(Kind kind) {
         switch (kind) {
             case STATIC:   return "static";
@@ -80,7 +80,6 @@ public class CompilationEngine implements AutoCloseable {
                 );
         }
     }
-
 
     private void pushVariable(Token name) throws IOException {
         Kind kind = symbolTable.kindOf(name.getLexeme());
@@ -95,8 +94,16 @@ public class CompilationEngine implements AutoCloseable {
         );
     }
 
+    /** Define a variável na tabela de símbolos, apontando a posição em caso de erro. */
+    private void define(Token name, String type, Kind kind) {
+        try {
+            symbolTable.define(name.getLexeme(), type, kind);
+        } catch (IllegalArgumentException e) {
+            throw error(name, e.getMessage());
+        }
+    }
 
-    // Estrutura da classe
+    // estrutura da classe
 
     public void compileClass() throws IOException {
         consume(TokenType.CLASS);
@@ -121,19 +128,138 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-    // Implementados no passo 7 (declarações de classes, variáveis e funções).
-    private void compileClassVarDec() throws IOException {
-        throw new UnsupportedOperationException(
-                "compileClassVarDec ainda não implementado"
-        );
+
+    // Declarações
+
+    private String compileType() {
+        if (match(TokenType.INT)
+                || match(TokenType.CHAR)
+                || match(TokenType.BOOLEAN)
+                || match(TokenType.IDENT)) {
+            Token type = currentToken;
+            advance();
+            return type.getLexeme();
+        }
+
+        throw error(currentToken, "Esperado: um tipo válido");
+    }
+
+    private void compileClassVarDec() {
+        Kind kind;
+
+        if (match(TokenType.STATIC)) {
+            kind = Kind.STATIC;
+            consume(TokenType.STATIC);
+        } else if (match(TokenType.FIELD)) {
+            kind = Kind.FIELD;
+            consume(TokenType.FIELD);
+        } else {
+            throw error(currentToken, "Esperado: static ou field");
+        }
+
+        String type = compileType();
+        define(consume(TokenType.IDENT), type, kind);
+
+        while (match(TokenType.COMMA)) {
+            consume(TokenType.COMMA);
+            define(consume(TokenType.IDENT), type, kind);
+        }
+
+        consume(TokenType.SEMICOLON);
     }
 
     private void compileSubroutine() throws IOException {
-        throw new UnsupportedOperationException(
-                "compileSubroutine ainda não implementado"
-        );
+        if (match(TokenType.CONSTRUCTOR)
+                || match(TokenType.FUNCTION)
+                || match(TokenType.METHOD)) {
+            subroutineKind = currentToken.getType();
+            advance();
+        } else {
+            throw error(currentToken,
+                    "Esperado: constructor, function ou method");
+        }
+
+        if (match(TokenType.VOID)) {
+            subroutineReturnType = "void";
+            consume(TokenType.VOID);
+        } else {
+            subroutineReturnType = compileType();
+        }
+
+        subroutineName = consume(TokenType.IDENT).getLexeme();
+
+        symbolTable.startSubroutine();
+
+
+        if (subroutineKind == TokenType.METHOD) {
+            symbolTable.define("this", className, Kind.ARGUMENT);
+        }
+
+        consume(TokenType.LPAREN);
+        compileParameterList();
+        consume(TokenType.RPAREN);
+
+        compileSubroutineBody();
     }
 
+    private void compileParameterList() {
+        if (match(TokenType.RPAREN)) {
+            return;
+        }
+
+        String type = compileType();
+        define(consume(TokenType.IDENT), type, Kind.ARGUMENT);
+
+        while (match(TokenType.COMMA)) {
+            consume(TokenType.COMMA);
+            type = compileType();
+            define(consume(TokenType.IDENT), type, Kind.ARGUMENT);
+        }
+    }
+
+
+    private void compileVarDec() {
+        consume(TokenType.VAR);
+
+        String type = compileType();
+        define(consume(TokenType.IDENT), type, Kind.VAR);
+
+        while (match(TokenType.COMMA)) {
+            consume(TokenType.COMMA);
+            define(consume(TokenType.IDENT), type, Kind.VAR);
+        }
+
+        consume(TokenType.SEMICOLON);
+    }
+
+
+    private void compileSubroutineBody() throws IOException {
+        consume(TokenType.LBRACE);
+
+        while (match(TokenType.VAR)) {
+            compileVarDec();
+        }
+
+        vmWriter.writeFunction(
+                className + "." + subroutineName,
+                symbolTable.varCount(Kind.VAR)
+        );
+
+        compileStatements();
+
+        consume(TokenType.RBRACE);
+    }
+
+    private void compileStatements() throws IOException {
+        if (match(TokenType.LET) || match(TokenType.IF)
+                || match(TokenType.WHILE) || match(TokenType.DO)
+                || match(TokenType.RETURN)) {
+            throw new UnsupportedOperationException(
+                    "comandos ainda não implementados (linha "
+                    + currentToken.getLine() + ")"
+            );
+        }
+    }
 
     // Erros
 
