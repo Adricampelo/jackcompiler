@@ -2,7 +2,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 
-
 public class CompilationEngine implements AutoCloseable {
 
     private final Scanner scan;
@@ -39,7 +38,6 @@ public class CompilationEngine implements AutoCloseable {
 
     // Leitura de tokens
 
-
     private void advance() {
         currentToken = peekToken;
         peekToken = scan.nextToken();
@@ -65,11 +63,10 @@ public class CompilationEngine implements AutoCloseable {
     }
 
     // Apoio à geração de código
-
+  
     private int nextLabelId() {
         return labelCounter++;
     }
-
 
     private String segmentOf(Kind kind) {
         switch (kind) {
@@ -84,7 +81,6 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-
     private void pushVariable(Token name) throws IOException {
         Kind kind = symbolTable.kindOf(name.getLexeme());
 
@@ -97,7 +93,6 @@ public class CompilationEngine implements AutoCloseable {
                 segmentOf(kind), symbolTable.indexOf(name.getLexeme())
         );
     }
-
 
     private void popVariable(Token name) throws IOException {
         Kind kind = symbolTable.kindOf(name.getLexeme());
@@ -112,7 +107,6 @@ public class CompilationEngine implements AutoCloseable {
         );
     }
 
- 
     private void define(Token name, String type, Kind kind) {
         try {
             symbolTable.define(name.getLexeme(), type, kind);
@@ -121,9 +115,9 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-
+    // ------------------------------------------------------------------
     // Estrutura da classe
-    
+    // ------------------------------------------------------------------
 
     public void compileClass() throws IOException {
         consume(TokenType.CLASS);
@@ -149,7 +143,6 @@ public class CompilationEngine implements AutoCloseable {
     }
 
     // Declarações 
-
     private String compileType() {
         if (match(TokenType.INT)
                 || match(TokenType.CHAR)
@@ -162,7 +155,6 @@ public class CompilationEngine implements AutoCloseable {
 
         throw error(currentToken, "Esperado: um tipo válido");
     }
-
 
     private void compileClassVarDec() {
         Kind kind;
@@ -188,7 +180,6 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.SEMICOLON);
     }
 
-
     private void compileSubroutine() throws IOException {
         if (match(TokenType.CONSTRUCTOR)
                 || match(TokenType.FUNCTION)
@@ -211,7 +202,6 @@ public class CompilationEngine implements AutoCloseable {
 
         symbolTable.startSubroutine();
 
-        // Em um método, o argumento 0 é o próprio objeto (this)
         if (subroutineKind == TokenType.METHOD) {
             symbolTable.define("this", className, Kind.ARGUMENT);
         }
@@ -272,7 +262,7 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.RBRACE);
     }
 
- 
+
     private void compileStatements() throws IOException {
         while (true) {
             if (match(TokenType.LET)) {
@@ -284,16 +274,15 @@ public class CompilationEngine implements AutoCloseable {
             } else if (match(TokenType.WHILE)) {
                 compileWhile();
             } else if (match(TokenType.RETURN)) {
-                throw notYet("comando return", "11");
+                compileReturn();
             } else {
                 return;
             }
         }
     }
 
+    // Comandos let e do 
 
-    // Comandos let e do (passo 9)
-   
     private void compileLet() throws IOException {
         consume(TokenType.LET);
         Token name = consume(TokenType.IDENT);
@@ -309,13 +298,12 @@ public class CompilationEngine implements AutoCloseable {
         popVariable(name);
     }
 
-    
+
     private void compileDo() throws IOException {
         consume(TokenType.DO);
         compileSubroutineCall();
         consume(TokenType.SEMICOLON);
 
-        
         vmWriter.writePop("temp", 0);
     }
 
@@ -355,7 +343,6 @@ public class CompilationEngine implements AutoCloseable {
         vmWriter.writeCall(target, nArgs);
     }
 
-  
     private int compileExpressionList() throws IOException {
         if (match(TokenType.RPAREN)) {
             return 0;
@@ -373,8 +360,33 @@ public class CompilationEngine implements AutoCloseable {
         return count;
     }
 
-    // Comandos if e while
-  
+    // Comando return 
+
+    private void compileReturn() throws IOException {
+        Token ret = consume(TokenType.RETURN);
+        boolean isVoid = subroutineReturnType.equals("void");
+
+        if (match(TokenType.SEMICOLON)) {
+            if (!isVoid) {
+                throw error(ret, "A sub-rotina " + subroutineName
+                        + " deve devolver um valor (tipo "
+                        + subroutineReturnType + ")");
+            }
+
+            vmWriter.writePush("constant", 0);
+        } else {
+            if (isVoid) {
+                throw error(ret, "A sub-rotina void " + subroutineName
+                        + " não pode devolver um valor");
+            }
+
+            compileExpression();
+        }
+
+        consume(TokenType.SEMICOLON);
+        vmWriter.writeReturn();
+    }
+
     private void compileIf() throws IOException {
         int id = nextLabelId();
         String ifTrue = "IF_TRUE" + id;
@@ -432,7 +444,8 @@ public class CompilationEngine implements AutoCloseable {
         vmWriter.writeLabel(whileEnd);
     }
 
-    // Expressões 
+    // Expressões
+
 
     private boolean isOperator() {
         return match(TokenType.PLUS) || match(TokenType.MINUS)
@@ -509,10 +522,10 @@ public class CompilationEngine implements AutoCloseable {
                 throw notYet("acesso a arrays", "14");
             } else if (next == TokenType.LPAREN
                     || next == TokenType.DOT) {
-                throw notYet("chamada de sub-rotina em expressão", "11");
+                compileSubroutineCall();
+            } else {
+                pushVariable(consume(TokenType.IDENT));
             }
-
-            pushVariable(consume(TokenType.IDENT));
 
         } else if (match(TokenType.STRING)) {
             throw notYet("constante string", "14");
