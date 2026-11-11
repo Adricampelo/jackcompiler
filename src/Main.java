@@ -1,35 +1,64 @@
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class Main {
 
     public static void main(String[] args) {
-        if (args.length < 1 || args.length > 2) {
-            System.err.println("Uso: java Main <arquivo.jack | pasta> [pasta-de-saida]");
+        boolean generateXml = false;
+        List<String> paths = new ArrayList<>();
+
+        for (String arg : args) {
+            if (arg.equals("--xml")) {
+                generateXml = true;
+            } else {
+                paths.add(arg);
+            }
+        }
+
+        if (paths.size() != 1) {
+            System.err.println("Uso: java Main <arquivo.jack | pasta> [--xml]");
+            System.err.println("  Gera um .vm para cada .jack, na mesma pasta do .jack.");
+            System.err.println("  --xml  também gera os XMLs de tokens e de sintaxe (entregas anteriores).");
             System.exit(1);
         }
 
-        Path input = Path.of(args[0]);
-        Path outDir = Path.of(args.length == 2 ? args[1] : "output");
+        Path input = Path.of(paths.get(0));
+        int failures = 0;
 
         try {
-            Files.createDirectories(outDir);
+            List<Path> files = findJackFiles(input);
 
-            for (Path file : findJackFiles(input)) {
-                compile(file, outDir);
+            if (files.isEmpty()) {
+                System.err.println("Nenhum arquivo .jack encontrado em: " + input);
+                System.exit(1);
+            }
+
+            for (Path file : files) {
+                try {
+                    if (generateXml) {
+                        compileXml(file);
+                    }
+
+                    compile(file);
+                } catch (IllegalArgumentException
+                         | UnsupportedOperationException e) {
+                    System.err.println(file + ": " + e.getMessage());
+                    failures++;
+                }
             }
 
         } catch (IOException e) {
             System.err.println("Erro de leitura/escrita: " + e.getMessage());
             System.exit(1);
+        }
 
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
+        if (failures > 0) {
+            System.err.println(failures + " arquivo(s) com erro.");
             System.exit(1);
         }
     }
@@ -51,49 +80,48 @@ public class Main {
         throw new IOException("Caminho não encontrado: " + input);
     }
 
+    private static String baseName(Path file) {
+        String fileName = file.getFileName().toString();
+        return fileName.substring(0, fileName.length() - 5);
+    }
 
-    private static void compile(Path file, Path outDir) throws IOException {
+    
+    private static void compile(Path file) throws IOException {
         byte[] bytes = Files.readAllBytes(file);
+        Path target = file.resolveSibling(baseName(file) + ".vm");
 
-        // Análise léxica
-        Scanner scanner = new Scanner(bytes);
-        String tokensXml = XmlWriter.write(scanner);
+        try (CompilationEngine engine = new CompilationEngine(bytes, target)) {
+            engine.compileClass();
+        } catch (RuntimeException e) {
+            // Não deixa um .vm incompleto na pasta
+            Files.deleteIfExists(target);
+            throw e;
+        }
 
-        // Análise sintática
+        System.out.println("VM gerado: " + target);
+    }
+
+    /** Comportamento das entregas anteriores: XML de tokens e de sintaxe. */
+    private static void compileXml(Path file) throws IOException {
+        byte[] bytes = Files.readAllBytes(file);
+        String baseName = baseName(file);
+
+        String tokensXml = XmlWriter.write(new Scanner(bytes));
+
         Parser parser = new Parser(bytes);
         parser.compileClass();
 
-        String syntaxXml = parser.getXmlOutput();
-        
-        String fileName = file.getFileName().toString();
-        String baseName = fileName.substring(0, fileName.length() - 5);
-
         Path syntaxTarget = file.resolveSibling(baseName + "P.xml");
+        Files.writeString(syntaxTarget, parser.getXmlOutput(),
+                StandardCharsets.UTF_8);
 
-        Files.writeString(
-                syntaxTarget,
-                syntaxXml,
-                StandardCharsets.UTF_8
-        );
-
-        // Gera o XML de tokens em uma pasta separada
-        String folderName = file.getParent().getFileName().toString();
-
-        Path tokensTarget = outDir.resolve(
-                "tokens"
-        ).resolve(
-                folderName
-        ).resolve(
-                baseName + "T.xml"
-        );
+        Path parent = file.toAbsolutePath().getParent();
+        Path tokensTarget = Path.of("output", "tokens")
+                .resolve(parent.getFileName().toString())
+                .resolve(baseName + "T.xml");
 
         Files.createDirectories(tokensTarget.getParent());
-
-        Files.writeString(
-                tokensTarget,
-                tokensXml,
-                StandardCharsets.UTF_8
-        );
+        Files.writeString(tokensTarget, tokensXml, StandardCharsets.UTF_8);
 
         System.out.println("XML sintático gerado: " + syntaxTarget);
         System.out.println("XML de tokens gerado: " + tokensTarget);
