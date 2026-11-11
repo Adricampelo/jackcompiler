@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 
+
 public class CompilationEngine implements AutoCloseable {
 
     private final Scanner scan;
@@ -14,7 +15,7 @@ public class CompilationEngine implements AutoCloseable {
     private String className;
     private int labelCounter = 0;
 
-    // Sub-rotina em compilação 
+    // Sub-rotina em compilação (usados também nos passos seguintes)
     private TokenType subroutineKind;      // CONSTRUCTOR, FUNCTION ou METHOD
     private String subroutineName;
     private String subroutineReturnType;
@@ -36,6 +37,7 @@ public class CompilationEngine implements AutoCloseable {
         advance();
     }
 
+ 
     // Leitura de tokens
 
     private void advance() {
@@ -62,6 +64,8 @@ public class CompilationEngine implements AutoCloseable {
         return token;
     }
 
+    // Apoio à geração de código
+
     /** Gera um rótulo único dentro da classe */
     private String newLabel(String prefix) {
         return prefix + (labelCounter++);
@@ -81,6 +85,7 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
+    /** Empilha o valor da variável 'name' (local, argumento, campo ou static). */
     private void pushVariable(Token name) throws IOException {
         Kind kind = symbolTable.kindOf(name.getLexeme());
 
@@ -103,7 +108,7 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-    // estrutura da classe
+    // Estrutura da classe
 
     public void compileClass() throws IOException {
         consume(TokenType.CLASS);
@@ -128,7 +133,6 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-
     // Declarações
 
     private String compileType() {
@@ -144,6 +148,7 @@ public class CompilationEngine implements AutoCloseable {
         throw error(currentToken, "Esperado: um tipo válido");
     }
 
+  
     private void compileClassVarDec() {
         Kind kind;
 
@@ -168,6 +173,10 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.SEMICOLON);
     }
 
+    /**
+     * subroutineDec: ('constructor' | 'function' | 'method')
+     *                ('void' | type) subroutineName '(' parameterList ')' body
+     */
     private void compileSubroutine() throws IOException {
         if (match(TokenType.CONSTRUCTOR)
                 || match(TokenType.FUNCTION)
@@ -189,7 +198,6 @@ public class CompilationEngine implements AutoCloseable {
         subroutineName = consume(TokenType.IDENT).getLexeme();
 
         symbolTable.startSubroutine();
-
 
         if (subroutineKind == TokenType.METHOD) {
             symbolTable.define("this", className, Kind.ARGUMENT);
@@ -217,7 +225,6 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-
     private void compileVarDec() {
         consume(TokenType.VAR);
 
@@ -232,7 +239,7 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.SEMICOLON);
     }
 
-
+   
     private void compileSubroutineBody() throws IOException {
         consume(TokenType.LBRACE);
 
@@ -250,6 +257,7 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.RBRACE);
     }
 
+
     private void compileStatements() throws IOException {
         if (match(TokenType.LET) || match(TokenType.IF)
                 || match(TokenType.WHILE) || match(TokenType.DO)
@@ -259,6 +267,122 @@ public class CompilationEngine implements AutoCloseable {
                     + currentToken.getLine() + ")"
             );
         }
+    }
+
+    // Expressões 
+
+    private boolean isOperator() {
+        return match(TokenType.PLUS) || match(TokenType.MINUS)
+                || match(TokenType.ASTERISK) || match(TokenType.SLASH)
+                || match(TokenType.AND) || match(TokenType.OR)
+                || match(TokenType.LT) || match(TokenType.GT)
+                || match(TokenType.EQ);
+    }
+
+
+    private void compileExpression() throws IOException {
+        compileTerm();
+
+        while (isOperator()) {
+            Token op = currentToken;
+            advance();
+            compileTerm();
+            writeBinaryOperator(op);
+        }
+    }
+
+    private void writeBinaryOperator(Token op) throws IOException {
+        switch (op.getType()) {
+            case PLUS:     vmWriter.writeArithmetic("add"); break;
+            case MINUS:    vmWriter.writeArithmetic("sub"); break;
+            case AND:      vmWriter.writeArithmetic("and"); break;
+            case OR:       vmWriter.writeArithmetic("or");  break;
+            case LT:       vmWriter.writeArithmetic("lt");  break;
+            case GT:       vmWriter.writeArithmetic("gt");  break;
+            case EQ:       vmWriter.writeArithmetic("eq");  break;
+            case ASTERISK: vmWriter.writeCall("Math.multiply", 2); break;
+            case SLASH:    vmWriter.writeCall("Math.divide", 2);   break;
+            default:
+                throw error(op, "Operador inválido");
+        }
+    }
+
+
+    private void compileTerm() throws IOException {
+        if (match(TokenType.NUMBER)) {
+            Token number = consume(TokenType.NUMBER);
+            writeIntegerConstant(number);
+
+        } else if (match(TokenType.TRUE)) {
+            consume(TokenType.TRUE);
+            vmWriter.writePush("constant", 0);
+            vmWriter.writeArithmetic("not");      // true = -1
+
+        } else if (match(TokenType.FALSE) || match(TokenType.NULL)) {
+            advance();
+            vmWriter.writePush("constant", 0);
+
+        } else if (match(TokenType.THIS)) {
+            consume(TokenType.THIS);
+            vmWriter.writePush("pointer", 0);
+
+        } else if (match(TokenType.LPAREN)) {
+            consume(TokenType.LPAREN);
+            compileExpression();
+            consume(TokenType.RPAREN);
+
+        } else if (match(TokenType.MINUS)) {
+            consume(TokenType.MINUS);
+            compileTerm();
+            vmWriter.writeArithmetic("neg");
+
+        } else if (match(TokenType.NOT)) {
+            consume(TokenType.NOT);
+            compileTerm();
+            vmWriter.writeArithmetic("not");
+
+        } else if (match(TokenType.IDENT)) {
+            TokenType next = peek().getType();
+
+            if (next == TokenType.LBRACKET) {
+                throw notYet("acesso a arrays", "14");
+            } else if (next == TokenType.LPAREN
+                    || next == TokenType.DOT) {
+                throw notYet("chamada de sub-rotina em expressão", "11");
+            }
+
+            pushVariable(consume(TokenType.IDENT));
+
+        } else if (match(TokenType.STRING)) {
+            throw notYet("constante string", "14");
+
+        } else {
+            throw error(currentToken, "Esperado: um termo válido");
+        }
+    }
+
+    private void writeIntegerConstant(Token number) throws IOException {
+        int value;
+
+        try {
+            value = Integer.parseInt(number.getLexeme());
+        } catch (NumberFormatException e) {
+            throw error(number, "Constante inteira inválida");
+        }
+
+        if (value < 0 || value > 32767) {
+            throw error(number,
+                    "Constante inteira fora do intervalo 0..32767");
+        }
+
+        vmWriter.writePush("constant", value);
+    }
+
+    private UnsupportedOperationException notYet(String what, String step) {
+        return new UnsupportedOperationException(
+                what + " ainda não implementado(a) (linha "
+                + currentToken.getLine() + ", passo " + step + ")"
+        );
     }
 
     // Erros
