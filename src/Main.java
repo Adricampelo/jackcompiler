@@ -51,28 +51,24 @@ public class Main {
         throw new IOException("Caminho não encontrado: " + input);
     }
 
+
     private static void compile(Path file, Path outDir) throws IOException {
         byte[] bytes = Files.readAllBytes(file);
 
+        // Análise léxica
         Scanner scanner = new Scanner(bytes);
         String tokensXml = XmlWriter.write(scanner);
 
+        // Análise sintática
         Parser parser = new Parser(bytes);
         parser.compileClass();
 
         String syntaxXml = parser.getXmlOutput();
-
+        
         String fileName = file.getFileName().toString();
         String baseName = fileName.substring(0, fileName.length() - 5);
 
-        Path tokensTarget = outDir.resolve(baseName + "T.xml");
-        Path syntaxTarget = outDir.resolve(baseName + ".xml");
-
-        Files.writeString(
-                tokensTarget,
-                tokensXml,
-                StandardCharsets.UTF_8
-        );
+        Path syntaxTarget = file.resolveSibling(baseName + "P.xml");
 
         Files.writeString(
                 syntaxTarget,
@@ -80,7 +76,26 @@ public class Main {
                 StandardCharsets.UTF_8
         );
 
-        System.out.println("Gerado: " + tokensTarget);
-        System.out.println("Gerado: " + syntaxTarget);
+        // Gera o XML de tokens em uma pasta separada
+        String folderName = file.getParent().getFileName().toString();
+
+        Path tokensTarget = outDir.resolve(
+                "tokens"
+        ).resolve(
+                folderName
+        ).resolve(
+                baseName + "T.xml"
+        );
+
+        Files.createDirectories(tokensTarget.getParent());
+
+        Files.writeString(
+                tokensTarget,
+                tokensXml,
+                StandardCharsets.UTF_8
+        );
+
+        System.out.println("XML sintático gerado: " + syntaxTarget);
+        System.out.println("XML de tokens gerado: " + tokensTarget);
     }
 }
