@@ -250,7 +250,6 @@ public class VMWriterTest {
     private static void assertEquals(String expected, String actual) {
         expected = expected.replace("\r\n", "\n");
         actual = actual.replace("\r\n", "\n");
-
         
         if (actual.endsWith("\n")) {
             actual = actual.substring(0, actual.length() - 1);
