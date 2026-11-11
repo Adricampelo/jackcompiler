@@ -2,7 +2,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 
-
 public class CompilationEngine implements AutoCloseable {
 
     private final Scanner scan;
@@ -37,7 +36,6 @@ public class CompilationEngine implements AutoCloseable {
         advance();
     }
 
- 
     // Leitura de tokens
 
     private void advance() {
@@ -99,6 +97,19 @@ public class CompilationEngine implements AutoCloseable {
         );
     }
 
+    private void popVariable(Token name) throws IOException {
+        Kind kind = symbolTable.kindOf(name.getLexeme());
+
+        if (kind == Kind.NONE) {
+            throw error(name, "Variável não declarada: "
+                    + name.getLexeme());
+        }
+
+        vmWriter.writePop(
+                segmentOf(kind), symbolTable.indexOf(name.getLexeme())
+        );
+    }
+
     /** Define a variável na tabela de símbolos, apontando a posição em caso de erro. */
     private void define(Token name, String type, Kind kind) {
         try {
@@ -107,7 +118,6 @@ public class CompilationEngine implements AutoCloseable {
             throw error(name, e.getMessage());
         }
     }
-
     // Estrutura da classe
 
     public void compileClass() throws IOException {
@@ -132,9 +142,10 @@ public class CompilationEngine implements AutoCloseable {
                     "Esperado: fim do arquivo (EOF)");
         }
     }
+    
+    // Declarações (passo 7)
 
-    // Declarações
-
+    /** type: 'int' | 'char' | 'boolean' | className. Devolve o tipo como texto. */
     private String compileType() {
         if (match(TokenType.INT)
                 || match(TokenType.CHAR)
@@ -148,7 +159,7 @@ public class CompilationEngine implements AutoCloseable {
         throw error(currentToken, "Esperado: um tipo válido");
     }
 
-  
+    /** classVarDec: ('static' | 'field') type varName (',' varName)* ';' */
     private void compileClassVarDec() {
         Kind kind;
 
@@ -173,10 +184,6 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.SEMICOLON);
     }
 
-    /**
-     * subroutineDec: ('constructor' | 'function' | 'method')
-     *                ('void' | type) subroutineName '(' parameterList ')' body
-     */
     private void compileSubroutine() throws IOException {
         if (match(TokenType.CONSTRUCTOR)
                 || match(TokenType.FUNCTION)
@@ -239,7 +246,7 @@ public class CompilationEngine implements AutoCloseable {
         consume(TokenType.SEMICOLON);
     }
 
-   
+
     private void compileSubroutineBody() throws IOException {
         consume(TokenType.LBRACE);
 
@@ -259,15 +266,103 @@ public class CompilationEngine implements AutoCloseable {
 
 
     private void compileStatements() throws IOException {
-        if (match(TokenType.LET) || match(TokenType.IF)
-                || match(TokenType.WHILE) || match(TokenType.DO)
-                || match(TokenType.RETURN)) {
-            throw new UnsupportedOperationException(
-                    "comandos ainda não implementados (linha "
-                    + currentToken.getLine() + ")"
-            );
+        while (true) {
+            if (match(TokenType.LET)) {
+                compileLet();
+            } else if (match(TokenType.DO)) {
+                compileDo();
+            } else if (match(TokenType.IF)) {
+                throw notYet("comando if", "10");
+            } else if (match(TokenType.WHILE)) {
+                throw notYet("comando while", "10");
+            } else if (match(TokenType.RETURN)) {
+                throw notYet("comando return", "11");
+            } else {
+                return;
+            }
         }
     }
+
+    // Comandos let e do 
+
+    private void compileLet() throws IOException {
+        consume(TokenType.LET);
+        Token name = consume(TokenType.IDENT);
+
+        if (match(TokenType.LBRACKET)) {
+            throw notYet("atribuição a array", "14");
+        }
+
+        consume(TokenType.EQ);
+        compileExpression();
+        consume(TokenType.SEMICOLON);
+
+        popVariable(name);
+    }
+
+    /** doStatement: 'do' subroutineCall ';' */
+    private void compileDo() throws IOException {
+        consume(TokenType.DO);
+        compileSubroutineCall();
+        consume(TokenType.SEMICOLON);
+
+        vmWriter.writePop("temp", 0);
+    }
+
+    
+    private void compileSubroutineCall() throws IOException {
+        Token first = consume(TokenType.IDENT);
+        String target;
+        int nArgs = 0;
+
+        if (match(TokenType.DOT)) {
+            consume(TokenType.DOT);
+            Token sub = consume(TokenType.IDENT);
+
+            if (symbolTable.kindOf(first.getLexeme()) != Kind.NONE) {
+                pushVariable(first);
+                target = symbolTable.typeOf(first.getLexeme())
+                        + "." + sub.getLexeme();
+                nArgs = 1;
+            } else {
+                target = first.getLexeme() + "." + sub.getLexeme();
+            }
+        } else {
+            if (subroutineKind == TokenType.FUNCTION) {
+                throw error(first, "Chamada de método sem objeto "
+                        + "dentro de uma function: " + first.getLexeme());
+            }
+
+            vmWriter.writePush("pointer", 0);
+            target = className + "." + first.getLexeme();
+            nArgs = 1;
+        }
+
+        consume(TokenType.LPAREN);
+        nArgs += compileExpressionList();
+        consume(TokenType.RPAREN);
+
+        vmWriter.writeCall(target, nArgs);
+    }
+
+
+    private int compileExpressionList() throws IOException {
+        if (match(TokenType.RPAREN)) {
+            return 0;
+        }
+
+        int count = 1;
+        compileExpression();
+
+        while (match(TokenType.COMMA)) {
+            consume(TokenType.COMMA);
+            compileExpression();
+            count++;
+        }
+
+        return count;
+    }
+
 
     // Expressões 
 
