@@ -309,7 +309,8 @@ public class CompilationEngine implements AutoCloseable {
         Token name = consume(TokenType.IDENT);
 
         if (match(TokenType.LBRACKET)) {
-            throw notYet("atribuição a array", "14");
+            compileArrayAssignment(name);
+            return;
         }
 
         consume(TokenType.EQ);
@@ -319,6 +320,23 @@ public class CompilationEngine implements AutoCloseable {
         popVariable(name);
     }
 
+
+    private void compileArrayAssignment(Token name) throws IOException {
+        consume(TokenType.LBRACKET);
+        pushVariable(name);
+        compileExpression();
+        consume(TokenType.RBRACKET);
+        vmWriter.writeArithmetic("add");
+
+        consume(TokenType.EQ);
+        compileExpression();
+        consume(TokenType.SEMICOLON);
+
+        vmWriter.writePop("temp", 0);
+        vmWriter.writePop("pointer", 1);
+        vmWriter.writePush("temp", 0);
+        vmWriter.writePop("that", 0);
+    }
 
     private void compileDo() throws IOException {
         consume(TokenType.DO);
@@ -552,7 +570,7 @@ public class CompilationEngine implements AutoCloseable {
             TokenType next = peek().getType();
 
             if (next == TokenType.LBRACKET) {
-                throw notYet("acesso a arrays", "14");
+                compileArrayAccess();
             } else if (next == TokenType.LPAREN
                     || next == TokenType.DOT) {
                 compileSubroutineCall();
@@ -561,10 +579,48 @@ public class CompilationEngine implements AutoCloseable {
             }
 
         } else if (match(TokenType.STRING)) {
-            throw notYet("constante string", "14");
+            compileStringConstant();
 
         } else {
             throw error(currentToken, "Esperado: um termo válido");
+        }
+    }
+
+    private void compileArrayAccess() throws IOException {
+        Token name = consume(TokenType.IDENT);
+        consume(TokenType.LBRACKET);
+
+        pushVariable(name);
+        compileExpression();
+        consume(TokenType.RBRACKET);
+
+        vmWriter.writeArithmetic("add");
+        vmWriter.writePop("pointer", 1);
+        vmWriter.writePush("that", 0);
+    }
+
+    /**
+     * Constante string: cria o objeto com String.new e acrescenta cada
+     * caractere com String.appendChar (que devolve a própria string,
+     * mantendo-a no topo da pilha).
+     */
+    private void compileStringConstant() throws IOException {
+        Token str = consume(TokenType.STRING);
+        String text = str.getLexeme();
+
+        vmWriter.writePush("constant", text.length());
+        vmWriter.writeCall("String.new", 1);
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+
+            if (c > 127) {
+                throw error(str, "Caractere fora do ASCII na string: '"
+                        + c + "'");
+            }
+
+            vmWriter.writePush("constant", c);
+            vmWriter.writeCall("String.appendChar", 2);
         }
     }
 
