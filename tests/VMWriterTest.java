@@ -1,4 +1,3 @@
-
 import java.io.StringWriter;
 
 public class VMWriterTest {
@@ -165,57 +164,65 @@ public class VMWriterTest {
 
     private static void testInvalidSegment() {
         testException("Segmento inválido", () -> {
-            new VMWriter(new StringWriter())
-                    .writePush("invalid", 0);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writePush("invalid", 0);
+            }
         });
     }
 
     private static void testInvalidPopConstant() {
         testException("Pop no segmento constant", () -> {
-            new VMWriter(new StringWriter())
-                    .writePop("constant", 10);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writePop("constant", 10);
+            }
         });
     }
 
     private static void testInvalidPointerIndex() {
         testException("Índice inválido de pointer", () -> {
-            new VMWriter(new StringWriter())
-                    .writePush("pointer", 2);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writePush("pointer", 2);
+            }
         });
     }
 
     private static void testInvalidTempIndex() {
         testException("Índice inválido de temp", () -> {
-            new VMWriter(new StringWriter())
-                    .writePop("temp", 8);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writePop("temp", 8);
+            }
         });
     }
 
     private static void testInvalidConstantIndex() {
         testException("Constante acima do limite", () -> {
-            new VMWriter(new StringWriter())
-                    .writePush("constant", 32768);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writePush("constant", 32768);
+            }
         });
     }
 
     private static void testInvalidArithmetic() {
         testException("Operação aritmética inválida", () -> {
-            new VMWriter(new StringWriter())
-                    .writeArithmetic("multiply");
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writeArithmetic("multiply");
+            }
         });
     }
 
     private static void testInvalidNegativeArguments() {
         testException("Número negativo de argumentos", () -> {
-            new VMWriter(new StringWriter())
-                    .writeCall("Main.main", -1);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writeCall("Main.main", -1);
+            }
         });
     }
 
     private static void testInvalidName() {
         testException("Nome de função inválido", () -> {
-            new VMWriter(new StringWriter())
-                    .writeFunction("Main main", 0);
+            try (VMWriter writer = new VMWriter(new StringWriter())) {
+                writer.writeFunction("Main main", 0);
+            }
         });
     }
 

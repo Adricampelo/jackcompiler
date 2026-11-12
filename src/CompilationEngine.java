@@ -89,6 +89,11 @@ public class CompilationEngine implements AutoCloseable {
                     + name.getLexeme());
         }
 
+        if (kind == Kind.FIELD && subroutineKind == TokenType.FUNCTION) {
+            throw error(name, "O campo " + name.getLexeme()
+                    + " não pode ser usado dentro de uma function");
+        }
+
         vmWriter.writePush(
                 segmentOf(kind), symbolTable.indexOf(name.getLexeme())
         );
@@ -100,6 +105,11 @@ public class CompilationEngine implements AutoCloseable {
         if (kind == Kind.NONE) {
             throw error(name, "Variável não declarada: "
                     + name.getLexeme());
+        }
+
+        if (kind == Kind.FIELD && subroutineKind == TokenType.FUNCTION) {
+            throw error(name, "O campo " + name.getLexeme()
+                    + " não pode ser usado dentro de uma function");
         }
 
         vmWriter.writePop(
@@ -115,9 +125,7 @@ public class CompilationEngine implements AutoCloseable {
         }
     }
 
-    // ------------------------------------------------------------------
     // Estrutura da classe
-    // ------------------------------------------------------------------
 
     public void compileClass() throws IOException {
         consume(TokenType.CLASS);
@@ -257,11 +265,24 @@ public class CompilationEngine implements AutoCloseable {
                 symbolTable.varCount(Kind.VAR)
         );
 
+        writePrologue();
+
         compileStatements();
 
         consume(TokenType.RBRACE);
     }
 
+
+    private void writePrologue() throws IOException {
+        if (subroutineKind == TokenType.CONSTRUCTOR) {
+            vmWriter.writePush("constant", symbolTable.varCount(Kind.FIELD));
+            vmWriter.writeCall("Memory.alloc", 1);
+            vmWriter.writePop("pointer", 0);
+        } else if (subroutineKind == TokenType.METHOD) {
+            vmWriter.writePush("argument", 0);
+            vmWriter.writePop("pointer", 0);
+        }
+    }
 
     private void compileStatements() throws IOException {
         while (true) {
@@ -365,6 +386,13 @@ public class CompilationEngine implements AutoCloseable {
     private void compileReturn() throws IOException {
         Token ret = consume(TokenType.RETURN);
         boolean isVoid = subroutineReturnType.equals("void");
+
+        if (subroutineKind == TokenType.CONSTRUCTOR
+                && !(match(TokenType.THIS)
+                     && peek().getType() == TokenType.SEMICOLON)) {
+            throw error(currentToken,
+                    "Um constructor deve terminar com 'return this;'");
+        }
 
         if (match(TokenType.SEMICOLON)) {
             if (!isVoid) {
@@ -497,6 +525,11 @@ public class CompilationEngine implements AutoCloseable {
             vmWriter.writePush("constant", 0);
 
         } else if (match(TokenType.THIS)) {
+            if (subroutineKind == TokenType.FUNCTION) {
+                throw error(currentToken,
+                        "'this' não pode ser usado dentro de uma function");
+            }
+
             consume(TokenType.THIS);
             vmWriter.writePush("pointer", 0);
 
